@@ -16,7 +16,7 @@ app.get('/', async (req, res) => {
       max_tokens: 1000,
       messages: [{
         role: "user",
-        content: "tell me a joke"
+        content: "what does my calendar look like for next week?"
       }]
     });
     res.send(response.content[0].text);
