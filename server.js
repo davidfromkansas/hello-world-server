@@ -20,6 +20,7 @@ app.get('/', async (req, res) => {
       }]
     });
     res.send(response.content[0].text);
+    console.log(response);
   } catch (error) {
     res.send('Error: ' + error.message);
   }
