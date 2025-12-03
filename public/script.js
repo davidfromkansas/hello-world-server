@@ -20,9 +20,15 @@ function displayMessages(messages) {
     messages.forEach(msg => {
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message';
+        
+        // Mark Claude messages with special attribute
+        if (msg.username.toLowerCase() === 'claude') {
+            messageDiv.setAttribute('data-claude', 'true');
+        }
+        
         messageDiv.innerHTML = `
             <div class="username">${msg.username}</div>
-            <div>${msg.message}</div>
+            <div class="message-text">${msg.message}</div>
             <div class="timestamp">${new Date(msg.timestamp).toLocaleString()}</div>
         `;
         messagesDiv.appendChild(messageDiv);
