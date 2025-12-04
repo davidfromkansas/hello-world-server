@@ -95,26 +95,41 @@ async def post_message(request: MessageRequest):
         print("entire response")
         print(response)
         
-        # Handle tool calls if present
-        if response.content[0].type == "tool_use":
-            tool_name = response.content[0].name
-            tool_input = response.content[0].input
-            tool_result = handle_tool_call(tool_name, tool_input)
+        # Check if response contains tool calls
+        has_tool_use = any(content.type == "tool_use" for content in response.content)
+        
+        if has_tool_use:
+            print("Tool use detected!")
             
-            # Add tool use to conversation
+            # Add the assistant's response to conversation
             conversation.append({"role": "assistant", "content": response.content})
-            conversation.append({
-                "role": "user", 
-                "content": [{"type": "tool_result", "tool_use_id": response.content[0].id, "content": str(tool_result)}]
-            })
+            
+            # Handle each tool call
+            tool_results = []
+            for content in response.content:
+                if content.type == "tool_use":
+                    print(f"Calling tool: {content.name}")
+                    tool_result = handle_tool_call(content.name, content.input)
+                    print(f"Tool result: {tool_result}")
+                    
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": content.id,
+                        "content": str(tool_result)
+                    })
+            
+            # Add tool results to conversation
+            conversation.append({"role": "user", "content": tool_results})
             
             # Get final response after tool use
+            print("Getting final response after tool use...")
             final_response = anthropic_client.messages.create(
                 model="claude-3-haiku-20240307",
                 max_tokens=1000,
                 messages=conversation,
                 tools=available_tools
             )
+            print(f"Final response: {final_response}")
             
             ai_message = {
                 'id': int(time.time() * 1000) + 1,
