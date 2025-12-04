@@ -76,27 +76,38 @@ def authenticate_google_calendar():
     """
     creds = None
     
-    # Check if token.json exists (stored credentials)
-    if os.path.exists('token.json'):
+    # First try to get credentials from environment variable (for production)
+    token_json = os.getenv('GOOGLE_TOKEN_JSON')
+    if token_json:
+        import json
+        token_data = json.loads(token_json)
+        creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+    
+    # Otherwise check if token.json exists (for local development)
+    elif os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
     
-    # If no valid credentials, get new ones
+    # If no valid credentials, get new ones (local development only)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
+            # Save refreshed token back to file if using local file
+            if os.path.exists('token.json'):
+                with open('token.json', 'w') as token:
+                    token.write(creds.to_json())
         else:
-            # Need credentials.json file with OAuth 2.0 client info
-            if os.path.exists('credentials.json'):
+            # Only try interactive OAuth in local development
+            if os.path.exists('credentials.json') and not os.getenv('RAILWAY_ENVIRONMENT'):
                 flow = InstalledAppFlow.from_client_secrets_file(
                     'credentials.json', SCOPES)
                 # Use port 3000 to match one of your redirect URIs
                 creds = flow.run_local_server(port=3000)
+                
+                # Save credentials for next run
+                with open('token.json', 'w') as token:
+                    token.write(creds.to_json())
             else:
-                raise FileNotFoundError("credentials.json not found. Please download from Google Cloud Console.")
-        
-        # Save credentials for next run
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+                raise FileNotFoundError("No valid credentials found. Set GOOGLE_TOKEN_JSON environment variable or run OAuth locally first.")
     
     return build('calendar', 'v3', credentials=creds)
 
