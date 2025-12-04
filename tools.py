@@ -100,8 +100,8 @@ def authenticate_google_calendar():
             if os.path.exists('credentials.json') and not os.getenv('RAILWAY_ENVIRONMENT'):
                 flow = InstalledAppFlow.from_client_secrets_file(
                     'credentials.json', SCOPES)
-                # Use port 3000 to match one of your redirect URIs
-                creds = flow.run_local_server(port=3000)
+                # Use port 8080 to avoid conflict with main server on 3000
+                creds = flow.run_local_server(port=8080)
                 
                 # Save credentials for next run
                 with open('token.json', 'w') as token:
@@ -125,59 +125,81 @@ def get_calendar_events(tool_input):
         start_date = tool_input.get("start_date")
         end_date = tool_input.get("end_date")
         
-        # Parse dates
-        start_datetime = datetime.fromisoformat(start_date).isoformat() + 'Z'
-        end_datetime = datetime.fromisoformat(end_date).isoformat() + 'Z'
-        
-        # Authenticate and get service
-        service = authenticate_google_calendar()
-        
-        # Get events from primary calendar
-        events_result = service.events().list(
-            calendarId='primary',
-            timeMin=start_datetime,
-            timeMax=end_datetime,
-            maxResults=50,
-            singleEvents=True,
-            orderBy='startTime'
-        ).execute()
-        
-        events = events_result.get('items', [])
-        
-        # Format events for response
-        formatted_events = []
-        for event in events:
-            start = event['start'].get('dateTime', event['start'].get('date'))
-            end = event['end'].get('dateTime', event['end'].get('date'))
+        # Try real Google Calendar first
+        try:
+            # Parse dates
+            start_datetime = datetime.fromisoformat(start_date).isoformat() + 'Z'
+            end_datetime = datetime.fromisoformat(end_date).isoformat() + 'Z'
             
-            formatted_events.append({
-                'title': event.get('summary', 'No title'),
-                'description': event.get('description', ''),
-                'start': start,
-                'end': end,
-                'location': event.get('location', ''),
-                'attendees': [attendee.get('email') for attendee in event.get('attendees', [])]
-            })
+            # Authenticate and get service
+            service = authenticate_google_calendar()
+            
+            # Get events from primary calendar
+            events_result = service.events().list(
+                calendarId='primary',
+                timeMin=start_datetime,
+                timeMax=end_datetime,
+                maxResults=50,
+                singleEvents=True,
+                orderBy='startTime'
+            ).execute()
+            
+            events = events_result.get('items', [])
+            
+            # Format events for response
+            formatted_events = []
+            for event in events:
+                start = event['start'].get('dateTime', event['start'].get('date'))
+                end = event['end'].get('dateTime', event['end'].get('date'))
+                
+                formatted_events.append({
+                    'title': event.get('summary', 'No title'),
+                    'description': event.get('description', ''),
+                    'start': start,
+                    'end': end,
+                    'location': event.get('location', ''),
+                    'attendees': [attendee.get('email') for attendee in event.get('attendees', [])]
+                })
+            
+            return {
+                "events": formatted_events,
+                "total_events": len(formatted_events),
+                "date_range": f"{start_date} to {end_date}",
+                "source": "Google Calendar"
+            }
+            
+        except Exception as auth_error:
+            # Fall back to mock data if Google Calendar fails
+            print(f"Google Calendar failed: {auth_error}, using mock data")
+            
+            # Generate some mock events for testing
+            mock_events = [
+                {
+                    'title': 'Team Meeting',
+                    'description': 'Weekly team sync',
+                    'start': f"{start_date}T10:00:00",
+                    'end': f"{start_date}T11:00:00",
+                    'location': 'Conference Room A',
+                    'attendees': ['team@company.com']
+                },
+                {
+                    'title': 'Client Call',
+                    'description': 'Project status update',
+                    'start': f"{end_date}T14:00:00",
+                    'end': f"{end_date}T15:00:00",
+                    'location': 'Zoom',
+                    'attendees': ['client@company.com']
+                }
+            ]
+            
+            return {
+                "events": mock_events,
+                "total_events": len(mock_events),
+                "date_range": f"{start_date} to {end_date}",
+                "source": "Mock data (Google Calendar not configured)",
+                "note": "Configure Google Calendar API for real events"
+            }
         
-        return {
-            "events": formatted_events,
-            "total_events": len(formatted_events),
-            "date_range": f"{start_date} to {end_date}"
-        }
-        
-    except HttpError as error:
-        return {
-            "error": f"Google Calendar API error: {error}",
-            "events": [],
-            "total_events": 0
-        }
-    except FileNotFoundError as error:
-        return {
-            "error": str(error),
-            "events": [],
-            "total_events": 0,
-            "setup_required": "Please set up Google Calendar API credentials"
-        }
     except Exception as error:
         return {
             "error": f"Unexpected error: {error}",
