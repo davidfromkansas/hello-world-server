@@ -82,13 +82,15 @@ async def post_message(request: MessageRequest):
     
     # Get AI response from Claude using the conversation history
     try:
+        print("Waiting for response...")
         response = anthropic_client.messages.create(
             model="claude-3-haiku-20240307",
             max_tokens=1000,
             messages=conversation,
         )
-        print("Waiting for response...")
-        
+        print("...")
+        print("...")
+        print("entire response:" + response)
         ai_message = {
             'id': int(time.time() * 1000) + 1,
             'username': 'Claude',
