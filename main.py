@@ -90,7 +90,8 @@ async def post_message(request: MessageRequest):
         )
         print("...")
         print("...")
-        print("entire response:" + response)
+        print("entire response")
+        print(response)
         ai_message = {
             'id': int(time.time() * 1000) + 1,
             'username': 'Claude',
