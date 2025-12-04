@@ -8,6 +8,7 @@ import time
 from datetime import datetime
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from tools import available_tools, handle_tool_call
 
 # Load environment variables from .env file (for local development)
 load_dotenv()
@@ -87,20 +88,52 @@ async def post_message(request: MessageRequest):
             model="claude-3-haiku-20240307",
             max_tokens=1000,
             messages=conversation,
+            tools=available_tools
         )
         print("...")
         print("...")
         print("entire response")
         print(response)
-        ai_message = {
-            'id': int(time.time() * 1000) + 1,
-            'username': 'Claude',
-            'message': response.content[0].text,
-            'timestamp': datetime.now().isoformat()
-        }
+        
+        # Handle tool calls if present
+        if response.content[0].type == "tool_use":
+            tool_name = response.content[0].name
+            tool_input = response.content[0].input
+            tool_result = handle_tool_call(tool_name, tool_input)
+            
+            # Add tool use to conversation
+            conversation.append({"role": "assistant", "content": response.content})
+            conversation.append({
+                "role": "user", 
+                "content": [{"type": "tool_result", "tool_use_id": response.content[0].id, "content": str(tool_result)}]
+            })
+            
+            # Get final response after tool use
+            final_response = anthropic_client.messages.create(
+                model="claude-3-haiku-20240307",
+                max_tokens=1000,
+                messages=conversation,
+                tools=available_tools
+            )
+            
+            ai_message = {
+                'id': int(time.time() * 1000) + 1,
+                'username': 'Claude',
+                'message': final_response.content[0].text,
+                'timestamp': datetime.now().isoformat()
+            }
+            conversation.append({"role": "assistant", "content": final_response.content[0].text})
+        else:
+            # Regular text response
+            ai_message = {
+                'id': int(time.time() * 1000) + 1,
+                'username': 'Claude',
+                'message': response.content[0].text,
+                'timestamp': datetime.now().isoformat()
+            }
+            conversation.append({"role": "assistant", "content": response.content[0].text})
 
         messages.append(ai_message)
-        conversation.append({"role": "assistant", "content": response.content[0].text})
         
         print('AI response:', ai_message)
         
