@@ -29,9 +29,20 @@ google_calendar_tool_schema = {
     }
 }
 
+get_today_date_tool_schema = {
+    "name": "get_today_date",
+    "description": "Get today's current date and time",
+    "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+    }
+}
+
 # Add more tool schemas here as needed
 available_tools = [
-    google_calendar_tool_schema
+    google_calendar_tool_schema,
+    get_today_date_tool_schema
 ]
 
 def handle_tool_call(tool_name, tool_input):
@@ -47,6 +58,8 @@ def handle_tool_call(tool_name, tool_input):
     """
     if tool_name == "get_calendar_events":
         return get_calendar_events(tool_input)
+    elif tool_name == "get_today_date":
+        return get_today_date(tool_input)
     
     # Add more tool handlers here
     return {"error": f"Unknown tool: {tool_name}"}
@@ -160,3 +173,26 @@ def get_calendar_events(tool_input):
             "events": [],
             "total_events": 0
         }
+
+def get_today_date(tool_input):
+    """
+    Get today's current date and time.
+    
+    Args:
+        tool_input (dict): Empty dict (no parameters needed)
+        
+    Returns:
+        dict: Current date and time information
+    """
+    now = datetime.now()
+    
+    return {
+        "date": now.strftime("%Y-%m-%d"),
+        "time": now.strftime("%H:%M:%S"),
+        "datetime": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "iso_format": now.isoformat(),
+        "day_of_week": now.strftime("%A"),
+        "month": now.strftime("%B"),
+        "year": now.year,
+        "timestamp": int(now.timestamp())
+    }
